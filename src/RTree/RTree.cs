@@ -104,13 +104,13 @@ namespace Enyim.Collections
 				// split the items into M mostly square tiles
 				for (var i = 0; i < N; i += N1)
 				{
-					var slice = items.GetRange(i, N1);
+					var slice = items.GetRange(i, Math.Min(N - i, N1));
 					slice.Sort(compare);
 
 					for (var j = 0; j < slice.Count; j += N2)
 					{
 						// pack each entry recursively
-						var childNode = BuildOneLevel(slice.GetRange(j, N2), level + 1, height - 1);
+						var childNode = BuildOneLevel(slice.GetRange(j, Math.Min(slice.Count - j, N2)), level + 1, height - 1);
 						node.Children.Add(childNode);
 					}
 				}

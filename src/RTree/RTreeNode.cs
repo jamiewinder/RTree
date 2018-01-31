@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -21,7 +21,11 @@ namespace Enyim.Collections
 		}
 
 		public T Data { get; private set; }
-		public Envelope Envelope { get; internal set; }
+
+		// NOTE: this is deliberatly fields instead of properties
+		// These are accessed millions of times and making them fields
+		// improves bulk insertion performace by about 15%
+		public Envelope Envelope;
 
 		internal bool IsLeaf { get; set; }
 		internal int Height { get; set; }

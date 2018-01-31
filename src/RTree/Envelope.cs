@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -18,10 +18,13 @@ namespace Enyim.Collections
 			Y2 = y2;
 		}
 
-		public int X1 { get; private set; } // 0
-		public int Y1 { get; private set; } // 1
-		public int X2 { get; private set; } // 2
-		public int Y2 { get; private set; } // 3
+		// NOTE: these are deliberatly fields instead of properties
+		// These are accessed millions of times and making them fields
+		// improves bulk insertion performace by about 15%
+		public int X1;
+		public int Y1;
+		public int X2;
+		public int Y2;
 
 		internal int Area { get { return (X2 - X1) * (Y2 - Y1); } }
 		internal int Margin { get { return (X2 - X1) + (Y2 - Y1); } }

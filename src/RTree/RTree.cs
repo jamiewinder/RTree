@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -12,6 +12,8 @@ namespace Enyim.Collections
 	public class RTree<T>
 	{
 		private static readonly EqualityComparer<T> Comparer = EqualityComparer<T>.Default;
+		private static readonly XComparer xComparer = new XComparer();
+		private static readonly YComparer yComparer = new YComparer();
 
 		// per-bucket
 		private readonly int maxEntries;
@@ -27,10 +29,8 @@ namespace Enyim.Collections
 			Clear();
 		}
 
-		public void Load(IEnumerable<RTreeNode<T>> nnnn)
+		public void Load(List<RTreeNode<T>> nodes)
 		{
-			var nodes = nnnn.ToList();
-
 			if (nodes.Count < minEntries)
 			{
 				foreach (var n in nodes) Insert(n);
@@ -51,7 +51,6 @@ namespace Enyim.Collections
 			{
 				// split root if trees have the same height
 				SplitRoot(root, node);
-
 			}
 			else
 			{
@@ -89,7 +88,7 @@ namespace Enyim.Collections
 					// target number of root entries to maximize storage utilization
 					M = (int)Math.Ceiling((double)N / Math.Pow(M, height - 1));
 
-					items.Sort(CompareNodesByMinX);
+					items.Sort(xComparer);
 				}
 
 				node = new RTreeNode<T> { Height = height };
@@ -97,9 +96,15 @@ namespace Enyim.Collections
 				var N1 = (int)(Math.Ceiling((double)N / M) * Math.Ceiling(Math.Sqrt(M)));
 				var N2 = (int)Math.Ceiling((double)N / M);
 
-				var compare = level % 2 == 1
-								? new Comparison<RTreeNode<T>>(CompareNodesByMinX)
-								: new Comparison<RTreeNode<T>>(CompareNodesByMinY);
+				IComparer<RTreeNode<T>> compare;
+				if ((level % 2) == 1)
+				{
+					compare = xComparer;
+				}
+				else
+				{
+					compare = yComparer;
+				}
 
 				// split the items into M mostly square tiles
 				for (var i = 0; i < N; i += N1)
@@ -121,11 +126,11 @@ namespace Enyim.Collections
 			return node;
 		}
 
-		public IEnumerable<RTreeNode<T>> Search(Envelope envelope)
+		public IList<RTreeNode<T>> Search(Envelope envelope)
 		{
 			var node = root;
 
-			if (!envelope.Intersects(node.Envelope)) return Enumerable.Empty<RTreeNode<T>>();
+			if (!envelope.Intersects(node.Envelope)) return new List<RTreeNode<T>>();
 
 			var retval = new List<RTreeNode<T>>();
 			var nodesToSearch = new Stack<RTreeNode<T>>();
@@ -468,18 +473,15 @@ namespace Enyim.Collections
 		// sorts node children by the best axis for split
 		private static void ChooseSplitAxis(RTreeNode<T> node, int m, int M)
 		{
-			var xMargin = AllDistMargin(node, m, M, CompareNodesByMinX);
-			var yMargin = AllDistMargin(node, m, M, CompareNodesByMinY);
+			var xMargin = AllDistMargin(node, m, M, xComparer);
+			var yMargin = AllDistMargin(node, m, M, yComparer);
 
 			// if total distributions margin value is minimal for x, sort by minX,
 			// otherwise it's already sorted by minY
-			if (xMargin < yMargin) node.Children.Sort(CompareNodesByMinX);
+			if (xMargin < yMargin) node.Children.Sort(xComparer);
 		}
 
-		private static int CompareNodesByMinX(RTreeNode<T> a, RTreeNode<T> b) { return a.Envelope.X1.CompareTo(b.Envelope.X1); }
-		private static int CompareNodesByMinY(RTreeNode<T> a, RTreeNode<T> b) { return a.Envelope.Y1.CompareTo(b.Envelope.Y1); }
-
-		private static int AllDistMargin(RTreeNode<T> node, int m, int M, Comparison<RTreeNode<T>> compare)
+		private static int AllDistMargin(RTreeNode<T> node, int m, int M, IComparer<RTreeNode<T>> compare)
 		{
 			node.Children.Sort(compare);
 
@@ -502,6 +504,43 @@ namespace Enyim.Collections
 			}
 
 			return margin;
+		}
+
+		// Build comparer classes as it's much faster than using `new Comparison<>()`
+		// as it removes an extra virtual call made by Comparison class to get to the
+		// underlying IComparer.Compare
+		private class XComparer : IComparer<RTreeNode<T>>
+		{
+			public int Compare(RTreeNode<T> a, RTreeNode<T> b)
+			{
+				if (a.Envelope.X1 < b.Envelope.X1)
+				{
+					return -1;
+				}
+				if (a.Envelope.X1 > b.Envelope.X1)
+				{
+					return 1;
+				}
+
+				return 0;
+			}
+		}
+
+		private class YComparer : IComparer<RTreeNode<T>>
+		{
+			public int Compare(RTreeNode<T> a, RTreeNode<T> b)
+			{
+				if (a.Envelope.Y1 < b.Envelope.Y1)
+				{
+					return -1;
+				}
+				if (a.Envelope.Y1 > b.Envelope.Y1)
+				{
+					return 1;
+				}
+
+				return 0;
+			}
 		}
 	}
 }
